@@ -1,0 +1,29 @@
+name: Task
+description: General task or feature request
+labels: []
+body:
+  - type: dropdown
+    id: service
+    attributes:
+      label: Service
+      options:
+        - Nextcloud
+        - Vaultwarden
+        - Infrastructure
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What needs to be done?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any relevant details, links, or references
+    validations:
+      required: false
