@@ -1,0 +1,13 @@
+# IDE
+.idea/
+
+# AI context (contains infrastructure details)
+.ai_contexts/
+CLAUDE.md
+
+# Secrets
+.env
+*.env
+
+# OS
+.DS_Store
