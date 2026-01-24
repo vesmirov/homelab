@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: on-failure
+    volumes:
+      - /mnt/vault/nextcloud/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextcloud
+
+  cache:
+    image: redis:7-alpine
+    restart: on-failure
+    volumes:
+      - /mnt/vault/nextcloud/redis:/data
+    command: redis-server --save 60 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextcloud
+
+  app:
+    image: nextcloud:stable
+    restart: on-failure
+    ports:
+      - "0.0.0.0:8080:80"
+    volumes:
+      - /mnt/vault/nextcloud/data:/var/www/html
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: cache
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    networks:
+      - nextcloud
+
+  cron:
+    image: nextcloud:stable
+    restart: on-failure
+    volumes:
+      - /mnt/vault/nextcloud/data:/var/www/html
+    entrypoint: /cron.sh
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - nextcloud
+
+networks:
+  nextcloud:
+    driver: bridge
