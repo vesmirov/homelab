@@ -6,12 +6,5 @@ Self-hosted services running in Docker.
 
 | Service | Description |
 |---------|-------------|
-| Nextcloud | Cloud storage |
+| [Nextcloud](./nextcloud/) | Cloud storage |
 | Vaultwarden | Password manager (planned) |
-
-## Usage
-
-```bash
-cd nextcloud
-docker compose up -d
-```
