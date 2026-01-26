@@ -9,7 +9,7 @@ A collection of self-hosted services replacing well-known commercial alternative
 | Service | Replaces |
 |---------|----------|
 | [Nextcloud](./nextcloud) | Google Drive, Contacts, Calendar |
-| Vaultwarden | 1Password, LastPass |
+| [Vaultwarden](./vaultwarden) | 1Password, LastPass |
 
 ## Requirements
 
