@@ -42,3 +42,28 @@ Add to `config/config.php`:
 ```
 
 Adjust `trusted_proxies` subnet to match your Docker network (`docker network inspect nextcloud_nextcloud`).
+
+### Video previews
+
+The custom Dockerfile includes FFmpeg for video thumbnail generation. Add to `config/config.php`:
+
+```php
+'enable_previews' => true,
+'enabledPreviewProviders' => [
+    'OC\Preview\PNG',
+    'OC\Preview\JPEG',
+    'OC\Preview\GIF',
+    'OC\Preview\BMP',
+    'OC\Preview\XBitmap',
+    'OC\Preview\MP3',
+    'OC\Preview\TXT',
+    'OC\Preview\MarkDown',
+    'OC\Preview\Movie',
+    'OC\Preview\HEIC',
+],
+'preview_max_x' => 1024,
+'preview_max_y' => 768,
+'preview_max_memory' => 512,
+```
+
+Note: `OC\Preview\Movie` handles all video formats (MP4, MKV, AVI, etc.) via FFmpeg.

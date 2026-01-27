@@ -31,7 +31,10 @@ services:
       - nextcloud
 
   app:
-    image: nextcloud:stable
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nextcloud-ffmpeg:stable
     restart: on-failure
     ports:
       - "0.0.0.0:8080:80"
@@ -52,7 +55,7 @@ services:
       - nextcloud
 
   cron:
-    image: nextcloud:stable
+    image: nextcloud-ffmpeg:stable
     restart: on-failure
     volumes:
       - /mnt/vault/nextcloud/data:/var/www/html
