@@ -6,6 +6,7 @@ Self-hosted password manager (Bitwarden-compatible).
 
 - LUKS volume mounted at `/mnt/vault`
 - Data directory: `/mnt/vault/vaultwarden`
+- installed sqlite3: `sudo apt install sqlite3 -y`
 
 ## Setup
 

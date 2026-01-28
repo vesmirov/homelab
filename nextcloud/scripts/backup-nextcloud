@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+LOG_FILE="/var/log/homelab-backup.log"
+BACKUP_DIR="/mnt/backup"
+VAULT_DIR="/mnt/vault"
+DATE=$(date +%Y-%m-%d_%H-%M)
+KEEP_DAYS=7
+
+log() {
+    echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=== Nextcloud backup started ==="
+
+# Check mounts
+if ! mountpoint -q "$VAULT_DIR"; then
+    log "${RED}[ERROR]${NC} $VAULT_DIR is not mounted"
+    exit 1
+fi
+
+if ! mountpoint -q "$BACKUP_DIR"; then
+    log "${RED}[ERROR]${NC} $BACKUP_DIR is not mounted"
+    exit 1
+fi
+
+# Create backup directories
+mkdir -p "$BACKUP_DIR/nextcloud/db"
+mkdir -p "$BACKUP_DIR/nextcloud/data"
+
+# PostgreSQL backup
+log "Backing up Nextcloud database..."
+if docker exec nextcloud-db-1 pg_dump -U nextcloud nextcloud > "$BACKUP_DIR/nextcloud/db/db_$DATE.sql"; then
+    log "${GREEN}[OK]${NC} Nextcloud database backed up"
+else
+    log "${RED}[ERROR]${NC} Nextcloud database backup failed"
+    exit 1
+fi
+
+# Files sync (mirror)
+log "Syncing Nextcloud files..."
+if rsync -a --delete "$VAULT_DIR/nextcloud/data/" "$BACKUP_DIR/nextcloud/data/"; then
+    log "${GREEN}[OK]${NC} Nextcloud files synced"
+else
+    log "${RED}[ERROR]${NC} Nextcloud files sync failed"
+    exit 1
+fi
+
+# Cleanup old database backups
+find "$BACKUP_DIR/nextcloud/db" -name "db_*.sql" -mtime +$KEEP_DAYS -delete
+log "${GREEN}[OK]${NC} Cleanup complete"
+
+log "=== Nextcloud backup finished ==="
