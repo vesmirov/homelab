@@ -66,3 +66,18 @@ Shows current status of the service.
 - Mount status for `/mnt/vault` and `/mnt/backup`
 - Docker container status
 - HTTP health check on `localhost:8081/alive`
+
+### backup-vaultwarden
+
+Creates a backup of the Vaultwarden database.
+
+- Checks if `/mnt/vault` and `/mnt/backup` are mounted (required)
+- Creates SQLite backup to `/mnt/backup/vaultwarden/db/`
+- Keeps last 7 days, removes older backups
+- Logs to `/var/log/homelab-backup.log`
+
+Cron (runs daily at 3:00 AM):
+```bash
+sudo crontab -e
+# Add: 0 3 * * * /usr/local/bin/backup-vaultwarden
+```
