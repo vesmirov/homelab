@@ -67,3 +67,27 @@ The custom Dockerfile includes FFmpeg for video thumbnail generation. Add to `co
 ```
 
 Note: `OC\Preview\Movie` handles all video formats (MP4, MKV, AVI, etc.) via FFmpeg.
+
+## Management Scripts
+
+Scripts are located in `scripts/` directory and should be copied to `/usr/local/bin/` for system-wide access:
+```bash
+sudo cp scripts/* /usr/local/bin/
+sudo chmod +x /usr/local/bin/start-nextcloud /usr/local/bin/check-nextcloud
+```
+
+### start-nextcloud
+
+Starts the Nextcloud containers.
+
+- Checks if `/mnt/vault` is mounted (required, exits if not)
+- Checks if `/mnt/backup` is mounted (optional, shows warning if not)
+- Runs `docker compose up -d`
+
+### check-nextcloud
+
+Shows current status of the service.
+
+- Mount status for `/mnt/vault` and `/mnt/backup`
+- Docker containers status
+- HTTP health check on `localhost:8080`
