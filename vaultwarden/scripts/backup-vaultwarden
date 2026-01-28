@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+LOG_FILE="/var/log/homelab-backup.log"
+BACKUP_DIR="/mnt/backup"
+VAULT_DIR="/mnt/vault"
+DATE=$(date +%Y-%m-%d_%H-%M)
+KEEP_DAYS=7
+
+log() {
+    echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=== Vaultwarden backup started ==="
+
+# Check mounts
+if ! mountpoint -q "$VAULT_DIR"; then
+    log "${RED}[ERROR]${NC} $VAULT_DIR is not mounted"
+    exit 1
+fi
+
+if ! mountpoint -q "$BACKUP_DIR"; then
+    log "${RED}[ERROR]${NC} $BACKUP_DIR is not mounted"
+    exit 1
+fi
+
+# Create backup directory
+mkdir -p "$BACKUP_DIR/vaultwarden/db"
+
+# SQLite backup
+log "Backing up Vaultwarden database..."
+if sqlite3 "$VAULT_DIR/vaultwarden/db.sqlite3" ".backup '$BACKUP_DIR/vaultwarden/db/db_$DATE.sqlite3'"; then
+    log "${GREEN}[OK]${NC} Vaultwarden database backed up"
+else
+    log "${RED}[ERROR]${NC} Vaultwarden database backup failed"
+    exit 1
+fi
+
+# Cleanup old backups
+find "$BACKUP_DIR/vaultwarden/db" -name "db_*.sqlite3" -mtime +$KEEP_DAYS -delete
+log "${GREEN}[OK]${NC} Cleanup complete"
+
+log "=== Vaultwarden backup finished ==="

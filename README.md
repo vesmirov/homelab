@@ -15,9 +15,33 @@ A collection of self-hosted services replacing well-known commercial alternative
 
 - Docker
 - Docker Compose
-- Cloudflare Tunnel / Tailscale configured on server
+- (optional) Cloudflare Tunnel
+- (optional) Tailscale
 
-## Usage
+## Remote Access
 
-cd <service>
-docker compose up -d
+If you don't have a static IP or port forwarding configured, you can use one of these solutions for remote access:
+
+### Cloudflare Tunnel
+
+Exposes services via Cloudflare's network without opening ports.
+```bash
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+```
+
+Documentation: [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/)
+
+### Tailscale
+
+Creates a private mesh VPN between your devices.
+```bash
+sudo systemctl enable tailscaled
+sudo systemctl start tailscaled
+```
+
+Documentation: [Tailscale](https://tailscale.com/kb/)
+
+### Note
+
+Both can be used simultaneously. Cloudflare Tunnel is better for public access, Tailscale for private device-to-device connections.
