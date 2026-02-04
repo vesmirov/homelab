@@ -4,6 +4,7 @@
 # AI context (contains infrastructure details)
 .ai_contexts/
 CLAUDE.md
+.claude/
 
 # Secrets
 .env
