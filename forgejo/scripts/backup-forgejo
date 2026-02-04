@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+LOG_FILE="/var/log/homelab-backup.log"
+BACKUP_DIR="/mnt/backup"
+VAULT_DIR="/mnt/vault"
+DATE=$(date +%Y-%m-%d_%H-%M)
+KEEP_DAYS=7
+
+log() {
+    echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=== Forgejo backup started ==="
+
+# Check mounts
+if ! mountpoint -q "$VAULT_DIR"; then
+    log "${RED}[ERROR]${NC} $VAULT_DIR is not mounted"
+    exit 1
+fi
+
+if ! mountpoint -q "$BACKUP_DIR"; then
+    log "${RED}[ERROR]${NC} $BACKUP_DIR is not mounted"
+    exit 1
+fi
+
+# Create backup directories
+mkdir -p "$BACKUP_DIR/forgejo/db"
+mkdir -p "$BACKUP_DIR/forgejo/repos"
+
+# SQLite backup
+log "Backing up Forgejo database..."
+if sqlite3 "$VAULT_DIR/forgejo/forgejo/forgejo.db" ".backup '$BACKUP_DIR/forgejo/db/db_$DATE.sqlite3'"; then
+    log "${GREEN}[OK]${NC} Forgejo database backed up"
+else
+    log "${RED}[ERROR]${NC} Forgejo database backup failed"
+    exit 1
+fi
+
+# Repositories sync (mirror)
+log "Syncing Forgejo repositories..."
+if rsync -a --delete "$VAULT_DIR/forgejo/git/repositories/" "$BACKUP_DIR/forgejo/repos/"; then
+    log "${GREEN}[OK]${NC} Forgejo repositories synced"
+else
+    log "${RED}[ERROR]${NC} Forgejo repositories sync failed"
+    exit 1
+fi
+
+# Cleanup old database backups
+find "$BACKUP_DIR/forgejo/db" -name "db_*.sqlite3" -mtime +$KEEP_DAYS -delete
+log "${GREEN}[OK]${NC} Cleanup complete"
+
+log "=== Forgejo backup finished ==="

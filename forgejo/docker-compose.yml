@@ -1,0 +1,23 @@
+services:
+  forgejo:
+    image: codeberg/forgejo:latest
+    container_name: forgejo
+    restart: on-failure
+    ports:
+      - "8082:3000"
+      - "2222:22"
+    volumes:
+      - /mnt/vault/forgejo:/data
+    environment:
+      USER_UID: ${USER_UID}
+      USER_GID: ${USER_GID}
+      FORGEJO__server__ROOT_URL: ${ROOT_URL}
+      FORGEJO__server__SSH_PORT: ${SSH_PORT}
+      FORGEJO__server__SSH_DOMAIN: ${SSH_DOMAIN}
+      FORGEJO__service__DISABLE_REGISTRATION: ${DISABLE_REGISTRATION}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

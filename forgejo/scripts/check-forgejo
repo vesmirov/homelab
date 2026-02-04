@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+COMPOSE_DIR="/home/${SUDO_USER:-$USER}/homelab/forgejo"
+
+# Mounts
+if mountpoint -q /mnt/vault; then
+    echo -e "${GREEN}[OK]${NC} /mnt/vault is mounted"
+else
+    echo -e "${RED}[ERROR]${NC} /mnt/vault is not mounted"
+fi
+
+if mountpoint -q /mnt/backup; then
+    echo -e "${GREEN}[OK]${NC} /mnt/backup is mounted"
+else
+    echo -e "${YELLOW}[WARN]${NC} /mnt/backup is not mounted"
+fi
+
+# Containers
+echo ""
+cd "$COMPOSE_DIR" && docker compose ps --format "table {{.Name}}\t{{.Status}}"
+
+# HTTP Check
+echo ""
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/api/healthz 2>/dev/null)
+if [[ "$HTTP_CODE" =~ ^(200|302|401)$ ]]; then
+    echo -e "${GREEN}[OK]${NC} HTTP responding (code: $HTTP_CODE)"
+else
+    echo -e "${RED}[ERROR]${NC} HTTP not responding (code: $HTTP_CODE)"
+fi
