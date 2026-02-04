@@ -10,6 +10,7 @@ A collection of self-hosted services replacing well-known commercial alternative
 |---------|----------|
 | [Nextcloud](./nextcloud) | Google Drive, Contacts, Calendar |
 | [Vaultwarden](./vaultwarden) | 1Password, LastPass |
+| [Forgejo](./forgejo) | GitHub, GitLab |
 
 ## Requirements
 
