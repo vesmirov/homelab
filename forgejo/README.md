@@ -20,13 +20,7 @@ Self-hosted Git server (GitHub/GitLab alternative).
    cp .env.example .env
    ```
 
-3. Get your user/group ID and update `.env`:
-   ```bash
-   id
-   # Update USER_UID and USER_GID in .env
-   ```
-
-4. Start the container:
+3. Start the container:
    ```bash
    docker compose up -d
    ```

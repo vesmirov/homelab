@@ -9,8 +9,6 @@ services:
     volumes:
       - /mnt/vault/forgejo:/data
     environment:
-      USER_UID: ${USER_UID}
-      USER_GID: ${USER_GID}
       FORGEJO__server__ROOT_URL: ${ROOT_URL}
       FORGEJO__server__SSH_PORT: ${SSH_PORT}
       FORGEJO__server__SSH_DOMAIN: ${SSH_DOMAIN}
