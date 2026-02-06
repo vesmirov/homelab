@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+COMPOSE_DIR="/home/${SUDO_USER:-$USER}/homelab/forgejo"
+
+# Check required mount
+if ! mountpoint -q /mnt/vault; then
+    echo -e "${RED}[ERROR]${NC} /mnt/vault is not mounted (required)"
+    exit 1
+fi
+echo -e "${GREEN}[OK]${NC} /mnt/vault is mounted"
+
+# Check optional mount
+if mountpoint -q /mnt/backup; then
+    echo -e "${GREEN}[OK]${NC} /mnt/backup is mounted"
+else
+    echo -e "${YELLOW}[WARN]${NC} /mnt/backup is not mounted (optional)"
+fi
+
+# Start containers
+echo "Starting Forgejo..."
+cd "$COMPOSE_DIR" && docker compose up -d
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}[OK]${NC} Forgejo started"
+else
+    echo -e "${RED}[ERROR]${NC} Failed to start Forgejo"
+    exit 1
+fi

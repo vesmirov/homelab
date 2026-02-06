@@ -13,7 +13,6 @@ Self-hosted password manager (Bitwarden-compatible).
 1. Create data directory:
    ```bash
    sudo mkdir -p /mnt/vault/vaultwarden
-   sudo chown -R $USER:$USER /mnt/vault/vaultwarden
    ```
 
 2. Create `.env` from example:
