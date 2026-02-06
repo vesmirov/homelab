@@ -1,11 +1,11 @@
 services:
   forgejo:
-    image: codeberg/forgejo:latest
+    image: codeberg.org/forgejo/forgejo:11
     container_name: forgejo
     restart: on-failure
     ports:
-      - "8082:3000"
-      - "2222:22"
+      - "${HOST_IP}:8082:3000"
+      - "${HOST_IP}:2222:22"
     volumes:
       - /mnt/vault/forgejo:/data
     environment:
