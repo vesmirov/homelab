@@ -50,6 +50,16 @@ else
     exit 1
 fi
 
+# LFS sync
+log "Syncing Forgejo LFS objects..."
+mkdir -p "$BACKUP_DIR/forgejo/lfs"
+if rsync -a --delete "$VAULT_DIR/forgejo/git/lfs/" "$BACKUP_DIR/forgejo/lfs/"; then
+    log "${GREEN}[OK]${NC} Forgejo LFS synced"
+else
+    log "${RED}[ERROR]${NC} Forgejo LFS sync failed"
+    exit 1
+fi
+
 # Cleanup old database backups
 find "$BACKUP_DIR/forgejo/db" -name "db_*.sqlite3" -mtime +$KEEP_DAYS -delete
 log "${GREEN}[OK]${NC} Cleanup complete"

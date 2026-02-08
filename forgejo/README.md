@@ -76,6 +76,7 @@ Creates a backup of the Forgejo database and repositories.
 - Checks if `/mnt/vault` and `/mnt/backup` are mounted (required)
 - Creates SQLite backup to `/mnt/backup/forgejo/db/` (7-day retention)
 - Syncs all repositories to `/mnt/backup/forgejo/repos/` (mirror)
+- Syncs LFS objects to `/mnt/backup/forgejo/lfs/` (mirror)
 - Logs to `/var/log/homelab-backup.log`
 
 Cron (runs daily at 3:30 AM):
