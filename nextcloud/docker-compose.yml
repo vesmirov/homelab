@@ -41,6 +41,7 @@ services:
     volumes:
       - /mnt/vault/nextcloud/data:/var/www/html
     environment:
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT}
       POSTGRES_HOST: db
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -65,6 +66,8 @@ services:
     restart: on-failure
     volumes:
       - /mnt/vault/nextcloud/data:/var/www/html
+    environment:
+      PHP_MEMORY_LIMIT: ${PHP_MEMORY_LIMIT}
     entrypoint: /cron.sh
     depends_on:
       app:
