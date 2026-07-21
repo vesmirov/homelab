@@ -1,0 +1,81 @@
+services:
+  app:
+    image: ghcr.io/open-webui/open-webui:main
+    restart: on-failure
+    ports:
+      - "0.0.0.0:3000:8080"
+    volumes:
+      - /mnt/vault/open-webui/data:/app/backend/data
+    environment:
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      RAG_EMBEDDING_ENGINE: ollama
+      RAG_OLLAMA_BASE_URL: http://ollama:11434
+      RAG_EMBEDDING_MODEL: qwen3-embedding:0.6b
+      CODE_EXECUTION_ENGINE: jupyter
+      CODE_EXECUTION_JUPYTER_URL: http://jupyter:8888
+      CODE_EXECUTION_JUPYTER_AUTH: token
+      CODE_EXECUTION_JUPYTER_AUTH_TOKEN: ${JUPYTER_TOKEN}
+      CODE_INTERPRETER_ENGINE: jupyter
+      CODE_INTERPRETER_JUPYTER_URL: http://jupyter:8888
+      CODE_INTERPRETER_JUPYTER_AUTH: token
+      CODE_INTERPRETER_JUPYTER_AUTH_TOKEN: ${JUPYTER_TOKEN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    networks:
+      - open-webui
+
+  ollama:
+    image: ollama/ollama:0.32.1
+    restart: on-failure
+    cpus: 3
+    mem_limit: 3g
+    volumes:
+      - /mnt/vault/open-webui/ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    networks:
+      - open-webui
+
+  files:
+    image: nginx:alpine
+    restart: on-failure
+    volumes:
+      - /mnt/vault/open-webui/jupyter:/usr/share/nginx/html:ro
+    ports:
+      - "8090:80"
+    networks:
+      - open-webui
+
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    image: open-webui-jupyter:latest
+    pull_policy: build
+    restart: on-failure
+    cpus: 3
+    mem_limit: 2g
+    environment:
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN}
+    volumes:
+      - /mnt/vault/open-webui/jupyter:/home/jovyan/work
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8888/api"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    networks:
+    - open-webui
+
+networks:
+  open-webui:
+    driver: bridge
