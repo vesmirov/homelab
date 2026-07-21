@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+LOG_FILE="/var/log/homelab-backup.log"
+BACKUP_DIR="/mnt/backup"
+VAULT_DIR="/mnt/vault"
+DATE=$(date +%Y-%m-%d_%H-%M)
+KEEP_DAYS=7
+
+log() {
+    echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=== Open WebUI backup started ==="
+
+# Check mounts
+if ! mountpoint -q "$VAULT_DIR"; then
+    log "${RED}[ERROR]${NC} $VAULT_DIR is not mounted"
+    exit 1
+fi
+
+if ! mountpoint -q "$BACKUP_DIR"; then
+    log "${RED}[ERROR]${NC} $BACKUP_DIR is not mounted"
+    exit 1
+fi
+
+# Create backup directories
+mkdir -p "$BACKUP_DIR/open-webui/db"
+mkdir -p "$BACKUP_DIR/open-webui/data"
+mkdir -p "$BACKUP_DIR/open-webui/jupyter"
+
+# SQLite backup
+log "Backing up Open WebUI database..."
+if sqlite3 "$VAULT_DIR/open-webui/data/webui.db" ".backup '$BACKUP_DIR/open-webui/db/db_$DATE.sqlite3'"; then
+    log "${GREEN}[OK]${NC} Open WebUI database backed up"
+else
+    log "${RED}[ERROR]${NC} Open WebUI database backup failed"
+    exit 1
+fi
+
+# Application data sync (uploads, vector db); db handled above
+log "Syncing Open WebUI data..."
+if rsync -a --delete --exclude 'webui.db*' "$VAULT_DIR/open-webui/data/" "$BACKUP_DIR/open-webui/data/"; then
+    log "${GREEN}[OK]${NC} Open WebUI data synced"
+else
+    log "${RED}[ERROR]${NC} Open WebUI data sync failed"
+    exit 1
+fi
+
+# Jupyter work files sync (mirror)
+log "Syncing Open WebUI Jupyter files..."
+if rsync -a --delete "$VAULT_DIR/open-webui/jupyter/" "$BACKUP_DIR/open-webui/jupyter/"; then
+    log "${GREEN}[OK]${NC} Open WebUI Jupyter files synced"
+else
+    log "${RED}[ERROR]${NC} Open WebUI Jupyter files sync failed"
+    exit 1
+fi
+
+# Cleanup old database backups
+find "$BACKUP_DIR/open-webui/db" -name "db_*.sqlite3" -mtime +$KEEP_DAYS -delete
+log "${GREEN}[OK]${NC} Cleanup complete"
+
+log "=== Open WebUI backup finished ==="

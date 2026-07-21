@@ -1,0 +1,2 @@
+FROM quay.io/jupyter/base-notebook:latest
+RUN pip install --no-cache-dir reportlab fpdf2 openpyxl python-docx pandas matplotlib
