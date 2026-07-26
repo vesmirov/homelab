@@ -8,6 +8,7 @@ services:
       - /mnt/vault/open-webui/data:/app/backend/data
     environment:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}
+      WEBUI_URL: ${WEBUI_URL}
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
       RAG_EMBEDDING_ENGINE: ollama
