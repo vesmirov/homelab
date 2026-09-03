@@ -1,82 +1,69 @@
 # Vaultwarden
 
-Self-hosted password manager (Bitwarden-compatible).
+Self-hosted password manager (Bitwarden-compatible), behind Caddy with automatic Let's Encrypt certificates.
 
 ## Prerequisites
 
-- LUKS volume mounted at `/mnt/vault`
-- Data directory: `/mnt/vault/vaultwarden`
-- installed sqlite3: `sudo apt install sqlite3 -y`
+- Docker with the compose plugin
+- LUKS volume mounted at `/mnt/vault`: data in `/mnt/vault/vaultwarden`, Caddy state in `/mnt/vault/caddy`, this directory in `/mnt/vault/stack`
+- `cryptsetup`, `sqlite3`
 
 ## Setup
 
-1. Create data directory:
-   ```bash
-   sudo mkdir -p /mnt/vault/vaultwarden
-   ```
-
-2. Create `.env` from example:
+1. Copy this directory to `/mnt/vault/stack`.
+2. Create `.env` from the example and fill in `DOMAIN`, `VAULT_HOST`, `ACME_EMAIL`, and the SMTP block if mail is used:
    ```bash
    cp .env.example .env
    ```
-
-3. Generate admin token and add to `.env`:
+3. Install the scripts:
    ```bash
-   openssl rand -base64 48
+   sudo cp scripts/* /usr/local/bin/
+   ```
+4. Start:
+   ```bash
+   sudo vault-open
    ```
 
-4. Start the container:
-   ```bash
-   docker compose up -d
-   ```
+## Scripts
 
-## Access
+### vault-open
 
-- Admin panel: `<domain>/admin`
-- Web vault: `<domain>`
+Opens the LUKS image, mounts it, verifies the mount point, runs `docker compose up -d`. Required after every reboot: the volume is not opened automatically. The mount point is immutable, so the containers cannot start on an unmounted volume.
 
-## Post-setup
+### vault-close
 
-1. Create first user via web interface
-2. Set `SIGNUPS_ALLOWED=false` in `.env`
-3. Recreate container: `docker compose up -d --force-recreate`
-4. Enable 2FA in user settings
+Stops the containers, unmounts and closes the volume.
 
-## Management Scripts
+### vault-update
 
-Scripts are located in `scripts/` directory and should be copied to `/usr/local/bin/` for system-wide access:
-```bash
-sudo cp scripts/* /usr/local/bin/
-sudo chmod +x /usr/local/bin/start-vaultwarden /usr/local/bin/check-vaultwarden
+Copies the SQLite database to `/mnt/vault/backups` (last 5 kept), then `docker compose pull`, `up -d`, and prunes old images. Images use floating tags because Bitwarden clients update themselves and require a matching server. Suggested weekly cron in root's crontab:
+
+```
+0 4 * * 1 /usr/local/bin/vault-update >> /var/log/vault-update.log 2>&1
 ```
 
-### start-vaultwarden
+Exits without changes if the volume is closed.
 
-Starts the Vaultwarden container.
-
-- Checks if `/mnt/vault` is mounted (required, exits if not)
-- Checks if `/mnt/backup` is mounted (optional, shows warning if not)
-- Runs `docker compose up -d`
+Rollback: `vault-close`, restore the last copy from `/mnt/vault/backups` over `db.sqlite3`, pin the previous tag in `docker-compose.yml`, `vault-open`. Database migrations are one-way, so the copy is required.
 
 ### check-vaultwarden
 
-Shows current status of the service.
+Mount status, container status, local and public health endpoints, web vault responds, `/admin` returns 404.
 
-- Mount status for `/mnt/vault` and `/mnt/backup`
-- Docker container status
-- HTTP health check on `localhost:8081/alive`
+## Admin panel
 
-### backup-vaultwarden
+Disabled unless `ADMIN_TOKEN` is set. Store it as an argon2 hash in single quotes:
 
-Creates a backup of the Vaultwarden database.
-
-- Checks if `/mnt/vault` and `/mnt/backup` are mounted (required)
-- Creates SQLite backup to `/mnt/backup/vaultwarden/db/`
-- Keeps last 7 days, removes older backups
-- Logs to `/var/log/homelab-backup.log`
-
-Cron (runs daily at 3:00 AM):
 ```bash
-sudo crontab -e
-# Add: 0 3 * * * /usr/local/bin/backup-vaultwarden
+docker run --rm -it vaultwarden/server:latest /vaultwarden hash --preset owasp
 ```
+
+Recreate the container and reach the panel through an SSH tunnel to the local port, never through the public domain. Remove the token when done.
+
+## Backups
+
+- Offline export from a Bitwarden client, encrypted, on removable media, refreshed regularly. Restores without any server.
+- restic of `/mnt/vault/vaultwarden` to independent storage.
+- LUKS header backup, stored with the offline exports.
+
+Never build images on the server.

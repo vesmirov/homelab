@@ -1,0 +1,25 @@
+{
+	email {$ACME_EMAIL}
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$VAULT_HOST} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	handle /admin* {
+		respond 404
+	}
+
+	handle {
+		reverse_proxy vaultwarden:80 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
+}

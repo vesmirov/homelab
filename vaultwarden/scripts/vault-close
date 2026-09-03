@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+NAME=vault
+MOUNT=/mnt/vault
+STACK=/mnt/vault/stack
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "run with sudo" >&2
+    exit 1
+fi
+
+if mountpoint -q "$MOUNT"; then
+    cd "$STACK"
+    docker compose down
+    cd /
+    umount "$MOUNT"
+fi
+
+if [ -e "/dev/mapper/$NAME" ]; then
+    cryptsetup close "$NAME"
+fi
+
+echo "$NAME closed"
