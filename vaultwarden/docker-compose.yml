@@ -8,6 +8,15 @@ services:
       - "127.0.0.1:8081:80"
     volumes:
       - /mnt/vault/vaultwarden:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
     mem_limit: 256m
     memswap_limit: 256m
     healthcheck:
@@ -33,5 +42,14 @@ services:
     environment:
       ACME_EMAIL: ${ACME_EMAIL}
       VAULT_HOST: ${VAULT_HOST}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
     mem_limit: 64m
     memswap_limit: 64m

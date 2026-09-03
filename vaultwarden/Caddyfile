@@ -1,5 +1,6 @@
 {
 	email {$ACME_EMAIL}
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
 	servers {
 		protocols h1 h2
 	}
@@ -7,6 +8,11 @@
 
 {$VAULT_HOST} {
 	encode zstd gzip
+	log
+
+	tls {
+		protocols tls1.3
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
