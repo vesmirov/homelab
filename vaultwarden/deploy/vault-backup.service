@@ -1,0 +1,9 @@
+[Unit]
+Description=Vaultwarden restic backup
+ConditionPathIsMountPoint=/mnt/vault
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/vault-backup
+Nice=10
+IOSchedulingClass=idle

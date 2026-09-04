@@ -1,0 +1,45 @@
+#!/bin/bash
+set -euo pipefail
+
+MOUNT=/mnt/vault
+ENV_FILE=/mnt/vault/restic.env
+DATA=/mnt/vault/vaultwarden
+STACK=/mnt/vault/stack
+CADDY=/mnt/vault/caddy
+STAGE=/mnt/vault/backups/restic-stage
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "run with sudo" >&2
+    exit 1
+fi
+
+if ! mountpoint -q "$MOUNT"; then
+    echo "$MOUNT is not mounted" >&2
+    exit 1
+fi
+
+set -a
+. "$ENV_FILE"
+set +a
+export GOGC=20
+
+mkdir -p "$STAGE"
+sqlite3 "$DATA/db.sqlite3" ".backup '$STAGE/db.sqlite3'"
+
+restic backup --quiet \
+    --exclude "$DATA/db.sqlite3" \
+    --exclude "$DATA/db.sqlite3-wal" \
+    --exclude "$DATA/db.sqlite3-shm" \
+    --exclude "$DATA/tmp" \
+    --exclude "$DATA/icon_cache" \
+    "$STAGE" "$DATA" "$STACK/.env" "$CADDY"
+
+rm -f "$STAGE/db.sqlite3"
+
+restic forget --quiet --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
+
+if [ "$(date +%d)" = "01" ]; then
+    restic check --quiet
+fi
+
+echo "backup done $(date +%F_%H-%M)"

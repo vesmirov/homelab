@@ -6,7 +6,7 @@ Self-hosted password manager (Bitwarden-compatible), behind Caddy with automatic
 
 - Docker with the compose plugin
 - LUKS volume mounted at `/mnt/vault`: data in `/mnt/vault/vaultwarden`, Caddy state in `/mnt/vault/caddy`, this directory in `/mnt/vault/stack`
-- `cryptsetup`, `sqlite3`
+- `cryptsetup`, `sqlite3`, `restic`
 
 ## Setup
 
@@ -15,9 +15,15 @@ Self-hosted password manager (Bitwarden-compatible), behind Caddy with automatic
    ```bash
    cp .env.example .env
    ```
-3. Install the scripts:
+3. Install the scripts and the backup timer:
    ```bash
    sudo cp scripts/* /usr/local/bin/
+   ```
+   ```bash
+   sudo cp deploy/vault-backup.service deploy/vault-backup.timer /etc/systemd/system/
+   ```
+   ```bash
+   sudo systemctl daemon-reload && sudo systemctl enable --now vault-backup.timer
    ```
 4. Start:
    ```bash
@@ -60,10 +66,45 @@ docker run --rm -it vaultwarden/server:latest /vaultwarden hash --preset owasp
 
 Recreate the container and reach the panel through an SSH tunnel to the local port, never through the public domain. Remove the token when done.
 
+### vault-backup
+
+Daily restic backup to S3-compatible storage, run by `vault-backup.timer` at 03:30. Credentials and the repository password live in `/mnt/vault/restic.env` (root, 0600), inside the LUKS volume:
+
+```
+RESTIC_REPOSITORY=s3:https://<endpoint>/<bucket>
+RESTIC_PASSWORD=<repository password>
+AWS_ACCESS_KEY_ID=<access key>
+AWS_SECRET_ACCESS_KEY=<secret key>
+```
+
+What goes in: a consistent SQLite copy taken with `sqlite3 .backup`, the data directory without the live database files and the icon cache, `.env`, and Caddy state so certificates survive a rebuild. Retention: 14 daily, 8 weekly, 12 monthly. `restic check` runs on the first day of each month. The unit is skipped while the volume is closed.
+
+First run, once:
+
+```bash
+sudo bash -c 'set -a; . /mnt/vault/restic.env; set +a; restic init'
+```
+
+```bash
+sudo vault-backup
+```
+
+## Restore
+
+On any machine with restic, the repository password and a token for the bucket:
+
+```bash
+restic restore latest --target /tmp/restore
+```
+
+The database is at `/tmp/restore/mnt/vault/backups/restic-stage/db.sqlite3`, the rest under `/tmp/restore/mnt/vault/`. Put `db.sqlite3` into the data directory, remove any stale `db.sqlite3-wal` and `db.sqlite3-shm`, restore attachments and `rsa_key.pem` next to it, then `vault-open`. Verify with `sqlite3 db.sqlite3 "PRAGMA integrity_check"` before starting.
+
+Test the restore, not the backup: do this once after setup and after any change to the script.
+
 ## Backups
 
-- Offline export from a Bitwarden client, encrypted, on removable media, refreshed regularly. Restores without any server.
-- restic of `/mnt/vault/vaultwarden` to independent storage.
-- LUKS header backup, stored with the offline exports.
+- restic to independent storage, see `vault-backup`. Without the repository password the backups are unreadable, keep it outside the server.
+- Offline export from a Bitwarden client, encrypted. Restores without any server. Attachments are not included in exports.
+- LUKS header backup, stored outside the server.
 
 Never build images on the server.
