@@ -75,7 +75,13 @@ RESTIC_REPOSITORY=s3:https://<endpoint>/<bucket>
 RESTIC_PASSWORD=<repository password>
 AWS_ACCESS_KEY_ID=<access key>
 AWS_SECRET_ACCESS_KEY=<secret key>
+HEARTBEAT_URL=<optional, pinged after a successful run>
+GRAFANA_PUSH_URL=<optional, Grafana Cloud Influx write endpoint>
+GRAFANA_PUSH_USER=<metrics instance id>
+GRAFANA_PUSH_TOKEN=<access policy token with metrics:write>
 ```
+
+With the Grafana variables set, every successful run pushes `vault_backup_last_success{host}` as a Unix timestamp. Alert on `time() - vault_backup_last_success > 97200` to catch missed backups.
 
 What goes in: a consistent SQLite copy taken with `sqlite3 .backup`, the data directory without the live database files and the icon cache, `.env`, and Caddy state so certificates survive a rebuild. Retention: 14 daily, 8 weekly, 12 monthly. `restic check` runs on the first day of each month. The unit is skipped while the volume is closed.
 
