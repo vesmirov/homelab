@@ -42,4 +42,15 @@ if [ "$(date +%d)" = "01" ]; then
     restic check --quiet
 fi
 
+if [ -n "${HEARTBEAT_URL:-}" ]; then
+    curl -fsS -m 10 --retry 3 "$HEARTBEAT_URL" >/dev/null || echo "heartbeat ping failed" >&2
+fi
+
+if [ -n "${GRAFANA_PUSH_URL:-}" ]; then
+    curl -fsS -m 10 --retry 3 -u "$GRAFANA_PUSH_USER:$GRAFANA_PUSH_TOKEN" \
+        -H "Content-Type: text/plain" \
+        --data-binary "vault_backup,host=$(hostname) last_success=$(date +%s)i" \
+        "$GRAFANA_PUSH_URL" >/dev/null || echo "metric push failed" >&2
+fi
+
 echo "backup done $(date +%F_%H-%M)"
