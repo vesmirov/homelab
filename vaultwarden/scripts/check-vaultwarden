@@ -1,35 +1,48 @@
 #!/bin/bash
 
-# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-COMPOSE_DIR="/home/${SUDO_USER:-$USER}/homelab/vaultwarden"
+MOUNT=/mnt/vault
+STACK=/mnt/vault/stack
+DOMAIN=$(grep -E "^VAULT_HOST=" "$STACK/.env" | cut -d= -f2)
 
-# Mounts
-if mountpoint -q /mnt/vault; then
-    echo -e "${GREEN}[OK]${NC} /mnt/vault is mounted"
+if mountpoint -q "$MOUNT"; then
+    echo -e "${GREEN}[OK]${NC} $MOUNT is mounted"
 else
-    echo -e "${RED}[ERROR]${NC} /mnt/vault is not mounted"
+    echo -e "${RED}[ERROR]${NC} $MOUNT is not mounted"
+    exit 1
 fi
 
-if mountpoint -q /mnt/backup; then
-    echo -e "${GREEN}[OK]${NC} /mnt/backup is mounted"
+echo ""
+cd "$STACK" && docker compose ps --format "table {{.Name}}\t{{.Status}}"
+
+echo ""
+LOCAL_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8081/alive 2>/dev/null)
+if [ "$LOCAL_CODE" = "200" ]; then
+    echo -e "${GREEN}[OK]${NC} vaultwarden responds locally"
 else
-    echo -e "${YELLOW}[WARN]${NC} /mnt/backup is not mounted"
+    echo -e "${RED}[ERROR]${NC} vaultwarden local check failed (code: $LOCAL_CODE)"
 fi
 
-# Containers
-echo ""
-cd "$COMPOSE_DIR" && docker compose ps --format "table {{.Name}}\t{{.Status}}"
-
-# HTTP Check
-echo ""
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/alive 2>/dev/null)
-if [[ "$HTTP_CODE" =~ ^(200|302|401)$ ]]; then
-    echo -e "${GREEN}[OK]${NC} HTTP responding (code: $HTTP_CODE)"
+PUBLIC_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN/alive" 2>/dev/null)
+if [ "$PUBLIC_CODE" = "200" ]; then
+    echo -e "${GREEN}[OK]${NC} https://$DOMAIN responds"
 else
-    echo -e "${RED}[ERROR]${NC} HTTP not responding (code: $HTTP_CODE)"
+    echo -e "${RED}[ERROR]${NC} https://$DOMAIN check failed (code: $PUBLIC_CODE)"
+fi
+
+ROOT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN/" 2>/dev/null)
+if [ "$ROOT_CODE" = "200" ]; then
+    echo -e "${GREEN}[OK]${NC} web vault responds"
+else
+    echo -e "${RED}[ERROR]${NC} web vault returned $ROOT_CODE, expected 200"
+fi
+
+ADMIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$DOMAIN/admin" 2>/dev/null)
+if [ "$ADMIN_CODE" = "404" ]; then
+    echo -e "${GREEN}[OK]${NC} /admin is closed"
+else
+    echo -e "${RED}[ERROR]${NC} /admin returned $ADMIN_CODE, expected 404"
 fi

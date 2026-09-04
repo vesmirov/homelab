@@ -1,82 +1,110 @@
 # Vaultwarden
 
-Self-hosted password manager (Bitwarden-compatible).
+Self-hosted password manager (Bitwarden-compatible), behind Caddy with automatic Let's Encrypt certificates.
 
 ## Prerequisites
 
-- LUKS volume mounted at `/mnt/vault`
-- Data directory: `/mnt/vault/vaultwarden`
-- installed sqlite3: `sudo apt install sqlite3 -y`
+- Docker with the compose plugin
+- LUKS volume mounted at `/mnt/vault`: data in `/mnt/vault/vaultwarden`, Caddy state in `/mnt/vault/caddy`, this directory in `/mnt/vault/stack`
+- `cryptsetup`, `sqlite3`, `restic`
 
 ## Setup
 
-1. Create data directory:
-   ```bash
-   sudo mkdir -p /mnt/vault/vaultwarden
-   ```
-
-2. Create `.env` from example:
+1. Copy this directory to `/mnt/vault/stack`.
+2. Create `.env` from the example and fill in `DOMAIN`, `VAULT_HOST`, `ACME_EMAIL`, and the SMTP block if mail is used:
    ```bash
    cp .env.example .env
    ```
-
-3. Generate admin token and add to `.env`:
+3. Install the scripts and the backup timer:
    ```bash
-   openssl rand -base64 48
+   sudo cp scripts/* /usr/local/bin/
+   ```
+   ```bash
+   sudo cp deploy/vault-backup.service deploy/vault-backup.timer /etc/systemd/system/
+   ```
+   ```bash
+   sudo systemctl daemon-reload && sudo systemctl enable --now vault-backup.timer
+   ```
+4. Start:
+   ```bash
+   sudo vault-open
    ```
 
-4. Start the container:
-   ```bash
-   docker compose up -d
-   ```
+## Scripts
 
-## Access
+### vault-open
 
-- Admin panel: `<domain>/admin`
-- Web vault: `<domain>`
+Opens the LUKS image, mounts it, verifies the mount point, runs `docker compose up -d`. Required after every reboot: the volume is not opened automatically. The mount point is immutable, so the containers cannot start on an unmounted volume.
 
-## Post-setup
+### vault-close
 
-1. Create first user via web interface
-2. Set `SIGNUPS_ALLOWED=false` in `.env`
-3. Recreate container: `docker compose up -d --force-recreate`
-4. Enable 2FA in user settings
+Stops the containers, unmounts and closes the volume.
 
-## Management Scripts
+### vault-update
 
-Scripts are located in `scripts/` directory and should be copied to `/usr/local/bin/` for system-wide access:
-```bash
-sudo cp scripts/* /usr/local/bin/
-sudo chmod +x /usr/local/bin/start-vaultwarden /usr/local/bin/check-vaultwarden
+Copies the SQLite database to `/mnt/vault/backups` (last 5 kept), then `docker compose pull`, `up -d`, and prunes old images. Images use floating tags because Bitwarden clients update themselves and require a matching server. Suggested weekly cron in root's crontab:
+
+```
+0 4 * * 1 /usr/local/bin/vault-update >> /var/log/vault-update.log 2>&1
 ```
 
-### start-vaultwarden
+Exits without changes if the volume is closed.
 
-Starts the Vaultwarden container.
-
-- Checks if `/mnt/vault` is mounted (required, exits if not)
-- Checks if `/mnt/backup` is mounted (optional, shows warning if not)
-- Runs `docker compose up -d`
+Rollback: `vault-close`, restore the last copy from `/mnt/vault/backups` over `db.sqlite3`, pin the previous tag in `docker-compose.yml`, `vault-open`. Database migrations are one-way, so the copy is required.
 
 ### check-vaultwarden
 
-Shows current status of the service.
+Mount status, container status, local and public health endpoints, web vault responds, `/admin` returns 404.
 
-- Mount status for `/mnt/vault` and `/mnt/backup`
-- Docker container status
-- HTTP health check on `localhost:8081/alive`
+## Admin panel
 
-### backup-vaultwarden
+Disabled unless `ADMIN_TOKEN` is set. Store it as an argon2 hash in single quotes:
 
-Creates a backup of the Vaultwarden database.
-
-- Checks if `/mnt/vault` and `/mnt/backup` are mounted (required)
-- Creates SQLite backup to `/mnt/backup/vaultwarden/db/`
-- Keeps last 7 days, removes older backups
-- Logs to `/var/log/homelab-backup.log`
-
-Cron (runs daily at 3:00 AM):
 ```bash
-sudo crontab -e
-# Add: 0 3 * * * /usr/local/bin/backup-vaultwarden
+docker run --rm -it vaultwarden/server:latest /vaultwarden hash --preset owasp
 ```
+
+Recreate the container and reach the panel through an SSH tunnel to the local port, never through the public domain. Remove the token when done.
+
+### vault-backup
+
+Daily restic backup to S3-compatible storage, run by `vault-backup.timer` at 03:30. Credentials and the repository password live in `/mnt/vault/restic.env` (root, 0600), inside the LUKS volume:
+
+```
+RESTIC_REPOSITORY=s3:https://<endpoint>/<bucket>
+RESTIC_PASSWORD=<repository password>
+AWS_ACCESS_KEY_ID=<access key>
+AWS_SECRET_ACCESS_KEY=<secret key>
+```
+
+What goes in: a consistent SQLite copy taken with `sqlite3 .backup`, the data directory without the live database files and the icon cache, `.env`, and Caddy state so certificates survive a rebuild. Retention: 14 daily, 8 weekly, 12 monthly. `restic check` runs on the first day of each month. The unit is skipped while the volume is closed.
+
+First run, once:
+
+```bash
+sudo bash -c 'set -a; . /mnt/vault/restic.env; set +a; restic init'
+```
+
+```bash
+sudo vault-backup
+```
+
+## Restore
+
+On any machine with restic, the repository password and a token for the bucket:
+
+```bash
+restic restore latest --target /tmp/restore
+```
+
+The database is at `/tmp/restore/mnt/vault/backups/restic-stage/db.sqlite3`, the rest under `/tmp/restore/mnt/vault/`. Put `db.sqlite3` into the data directory, remove any stale `db.sqlite3-wal` and `db.sqlite3-shm`, restore attachments and `rsa_key.pem` next to it, then `vault-open`. Verify with `sqlite3 db.sqlite3 "PRAGMA integrity_check"` before starting.
+
+Test the restore, not the backup: do this once after setup and after any change to the script.
+
+## Backups
+
+- restic to independent storage, see `vault-backup`. Without the repository password the backups are unreadable, keep it outside the server.
+- Offline export from a Bitwarden client, encrypted. Restores without any server. Attachments are not included in exports.
+- LUKS header backup, stored outside the server.
+
+Never build images on the server.

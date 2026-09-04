@@ -1,0 +1,30 @@
+#!/bin/bash
+set -euo pipefail
+
+MOUNT=/mnt/vault
+STACK=/mnt/vault/stack
+DATA=/mnt/vault/vaultwarden
+BACKUPS=/mnt/vault/backups
+KEEP=5
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "run with sudo" >&2
+    exit 1
+fi
+
+if ! mountpoint -q "$MOUNT"; then
+    echo "$MOUNT is not mounted" >&2
+    exit 1
+fi
+
+mkdir -p "$BACKUPS"
+STAMP=$(date +%Y-%m-%d_%H-%M)
+sqlite3 "$DATA/db.sqlite3" ".backup '$BACKUPS/db_$STAMP.sqlite3'"
+ls -1t "$BACKUPS"/db_*.sqlite3 | tail -n +$((KEEP + 1)) | xargs -r rm -f
+echo "database copied to $BACKUPS/db_$STAMP.sqlite3"
+
+cd "$STACK"
+docker compose pull
+docker compose up -d
+docker image prune -f
+docker compose ps
