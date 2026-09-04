@@ -64,7 +64,14 @@ Disabled unless `ADMIN_TOKEN` is set. Store it as an argon2 hash in single quote
 docker run --rm -it vaultwarden/server:latest /vaultwarden hash --preset owasp
 ```
 
-Recreate the container and reach the panel through an SSH tunnel to the local port, never through the public domain. Remove the token when done.
+Recreate the container. The panel is served only on the loopback port 8081 and is never reachable through the public domain. Two ways in:
+
+- Tailscale: let tailscaled expose the loopback port inside the tailnet, with a certificate for the machine's MagicDNS name. Runs once, survives reboots:
+  ```bash
+  sudo tailscale serve --bg --https=8082 http://127.0.0.1:8081
+  ```
+  Then open `https://<machine>.<tailnet>.ts.net:8082/admin` from a device in the tailnet. Only WireGuard peers reach it, no host port is opened.
+- SSH tunnel: `ssh -L 8081:127.0.0.1:8081 <host>` and `http://localhost:8081/admin`.
 
 ### vault-backup
 
